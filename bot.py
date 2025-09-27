@@ -67,7 +67,7 @@ async def on_raw_reaction_add(payload):
 					if member is not None and not member.bot:
 						if "👽 Rôle :" in anc.content:
 							ligne = anc.content.split("\n")
-							role = discord.utils.get(guild.roles, name=ligne[2])
+							role = discord.utils.get(guild.roles, name=ligne[2].split(":")[1])
 							if role:
 								await member.add_roles(role)
 								print(f"✅ Rôle '{role.name}' ajouté à {member.name}")
@@ -85,7 +85,7 @@ async def on_raw_reaction_remove(payload):
 					if member is not None and not member.bot:
 						if "👽 Rôle :" in anc.content:
 							ligne = anc.content.split("\n")
-							role = discord.utils.get(guild.roles, name=ligne[2])
+							role = discord.utils.get(guild.roles, name=ligne[2].split(":")[1])
 							if role:
 								await member.remove_roles(role)
 								print(f"❌ Rôle '{role.name}' retiré de {member.name}")
@@ -113,7 +113,6 @@ async def delete_category(ctx, *, nom_categorie):
 	for channel in categorie.channels:
 		try:
 			await channel.delete()
-			await ctx.send(f"🗑️ Room suppressed : {channel.name}")
 		except Exception as e:
 			await ctx.send(f"⚠️ Error deliting room {channel.name} : {e}")
 
@@ -137,16 +136,14 @@ async def create_party(ctx, new_party:str, announce_message:str):
 	role = await ctx.guild.create_role(name=new_party)
 
 	overwrites = {
-		ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Nobody can see
-		role: discord.PermissionOverwrite(view_channel=True, send_messages=True), # Exept this role
-		ctx.author: discord.PermissionOverwrite(view_channel=True, send_messages=True) # And the guys
+	ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Nobody can see
+	ctx.author: discord.PermissionOverwrite(view_channel=True, send_messages=True)
 	}
-
 	# creation of the new category
 	new_category = await ctx.guild.create_category(name=new_party, overwrites=overwrites)
 
 	# Added the new role to the creator of the party
-	# await ctx.author.add_roles(role)
+	await ctx.author.add_roles(role)
 	
 	# creation of every channel of the new category
 	for ch in template.channels:
@@ -154,7 +151,6 @@ async def create_party(ctx, new_party:str, announce_message:str):
 			new_channel = await ctx.guild.create_text_channel(
 				name=ch.name,
 				category=new_category,
-				overwrites=overwrites,
 				position=ch.position,
 				topic=ch.topic,
 				nsfw=ch.nsfw,
@@ -164,7 +160,6 @@ async def create_party(ctx, new_party:str, announce_message:str):
 			new_channel = await ctx.guild.create_voice_channel(
 				name=ch.name,
 				category=new_category,
-				overwrites=overwrites,
 				position=ch.position,
 				bitrate=ch.bitrate,
 				user_limit=ch.user_limit
@@ -175,7 +170,7 @@ async def create_party(ctx, new_party:str, announce_message:str):
 				discord.ForumTag(
 					name=tag.name,
 					emoji=tag.emoji,
-					moderated=tag.moderated
+					moderated=tag.moderated,
 				) for tag in ch.available_tags
 			]
 			new_channel = await ctx.guild.create_forum(
@@ -188,7 +183,29 @@ async def create_party(ctx, new_party:str, announce_message:str):
 		if (ch.name == "inventaire"):
 			await new_channel.send(stuffNewParty_prompt)
 
-	newParty_prompt:str = "🎉🎉 Nouvelle Soirée 🎉🎉 :\n👽 Rôle : " + role.name + "\n" + announce_message
+	role_source = discord.utils.get(ctx.guild.roles, name="Template")
+	role_target = discord.utils.get(ctx.guild.roles, name=role.name)
+	cat_source = discord.utils.get(ctx.guild.categories, name="Template")
+	cat_target = discord.utils.get(ctx.guild.categories, name=new_party)
+
+	if not all([role_source, role_target, cat_source, cat_target]):
+		await ctx.send("❌ Some element are unfidable.")
+		return
+
+	for ch_source in cat_source.channels:
+		# Trouver le salon correspondant dans la catégorie cible
+		ch_target = discord.utils.get(cat_target.channels, name=ch_source.name)
+		if not ch_target:
+			await ctx.send(f"⚠️ Channel {ch_source.name} unfindable")
+			continue
+
+		# Récupérer les permissions du rôle source dans le salon source
+		perms_source = ch_source.overwrites_for(role_source)
+
+		# Appliquer ces permissions au rôle cible dans le salon cible
+		await ch_target.set_permissions(role_target, overwrite=perms_source)
+
+	newParty_prompt:str = "@everyone\n🎉🎉 Nouvelle Soirée 🎉🎉 :\n👽 Rôle :" + role.name + "\n" + announce_message
 	await bot.get_channel(ANNOUNCE_CHANNEL).send(newParty_prompt)
 	last_msg_anc = [msg async for msg in bot.get_channel(ANNOUNCE_CHANNEL).history(limit=1)][0]
 	await last_msg_anc.add_reaction(EMOJI)

@@ -7,6 +7,7 @@ This bot automatically organizes events based on a template category that it cop
 python3 -m venv bot_env
 source bot_env/bin/activate.
 pip install discord.py python-dotenv
+python bot.py
 ```
 Use ```deactivate``` to go out of the env.
 
