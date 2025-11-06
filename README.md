@@ -2,13 +2,21 @@
 # Bot To organize party with friend
 This bot automatically organizes events based on a template category that it copies. It is currently not universal, and several variables need to be modified directly in the code. There is also an issue with the virtual environment (venv), which strangely doesn't contain the pre-installed modules. As a result, it needs to be recreated from scratch each time.
 
-## Installation 🏗️
-```bash
+## First Installation 🏗️
+``` bash
 python3 -m venv bot_env
 source bot_env/bin/activate.
 pip install discord.py python-dotenv
 python bot.py
 ```
+
+### Installation 🏗️
+``` bash
+source bot_env/bin/activate.
+python bot.py
+
+```
+
 Use ```deactivate``` to go out of the env.
 
 ## Utilisation
